@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AutoSend — UI preview</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:Inter,-apple-system,Roboto,sans-serif;background:#e9eaee;color:#1a1a1a;padding:18px 14px 40px}
+.hd{text-align:center;margin-bottom:18px}
+.hd h1{font-size:20px;font-weight:800;letter-spacing:-.02em}
+.hd p{font-size:13px;color:#666;margin-top:6px}
+.strip{display:flex;gap:16px;overflow-x:auto;padding:4px 2px 14px;scroll-snap-type:x mandatory}
+.opt{flex:0 0 auto;width:390px;scroll-snap-align:center}
+.opt .cap{text-align:center;margin-bottom:8px}
+.opt .cap b{font-size:15px}
+.opt .cap span{display:block;font-size:12px;color:#6b6b70;margin-top:3px}
+.phone{position:relative;width:390px;height:844px;border-radius:38px;overflow:hidden;
+  box-shadow:0 12px 34px rgba(0,0,0,.22);background:var(--bg);color:var(--t1);
+  border:8px solid #111;display:flex;flex-direction:column}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:120px;height:22px;background:#111;border-radius:0 0 16px 16px;z-index:5}
+.status{height:38px;flex:0 0 38px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font-size:12px;font-weight:600;color:var(--t1)}
+.status .dots{letter-spacing:2px}
+.appbar{flex:0 0 62px;display:flex;align-items:center;gap:12px;padding:0 18px;background:var(--card);border-bottom:1px solid var(--line)}
+.mark{width:40px;height:40px;border-radius:12px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:19px}
+.appname{font-size:17px;font-weight:700;line-height:1.1}
+.appsub{font-size:11px;color:var(--t2);margin-top:2px}
+.more{margin-left:auto;font-size:20px;color:var(--t2)}
+.content{flex:1;overflow:hidden;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.card{background:var(--card);border-radius:16px;padding:15px}
+.hero{background:var(--hero);border:1px solid var(--heroline)}
+.heroTop{display:flex;align-items:center;justify-content:space-between}
+.heroTop .lbl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t2)}
+.sw{width:52px;height:30px;border-radius:20px;background:var(--accent);position:relative;flex:0 0 auto}
+.sw:after{content:"";position:absolute;top:3px;right:3px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.bigtime{font-size:32px;font-weight:800;letter-spacing:-.02em;margin-top:10px}
+.bigtime small{font-size:16px;font-weight:700}
+.heroMeta{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.chip{font-size:11px;font-weight:600;padding:5px 10px;border-radius:20px;background:var(--chipbg);color:var(--chipfg)}
+.chip.g{background:var(--okbg);color:var(--okfg)}
+.seclabel{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t2);margin:2px 2px -4px}
+.row{display:flex;align-items:center;gap:12px;min-height:34px}
+.row .k{font-size:13px;color:var(--t2);flex:0 0 78px}
+.row .v{font-size:15px;font-weight:600;flex:1}
+.seg{display:flex;background:var(--seg);border-radius:10px;padding:3px;gap:2px}
+.seg b{font-size:12px;font-weight:700;padding:6px 12px;border-radius:8px;color:var(--t2)}
+.seg b.on{background:var(--accent);color:#fff}
+.field{border:1px solid var(--line);border-radius:12px;padding:11px 12px;font-size:14px;color:var(--t1);background:var(--input)}
+.field.mut{color:var(--t2)}
+.field.tall{height:64px;line-height:1.4}
+.perms{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.pill{font-size:10px;font-weight:700;padding:5px 9px;border-radius:16px;border:1px solid var(--line);color:var(--t2)}
+.pill.ok{background:var(--okbg);color:var(--okfg);border-color:transparent}
+.bottom{flex:0 0 96px;background:var(--card);border-top:1px solid var(--line);padding:12px 16px;display:flex;flex-direction:column;gap:8px}
+.cta{height:48px;border-radius:26px;background:var(--accent);color:#fff;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.test{text-align:center;font-size:12px;font-weight:600;color:var(--accent)}
+/* palettes */
+.d1{--bg:#F6F7F9;--card:#fff;--t1:#1A1A1A;--t2:#8A8A8E;--line:#EFEFF0;--accent:#128C7E;--hero:#E8F5F2;--heroline:#D3EBE6;--chipbg:#fff;--chipfg:#128C7E;--okbg:#E3F6EC;--okfg:#1B7A43;--seg:#F0F1F3;--input:#FAFAFB}
+.d2{--bg:#F5F6FA;--card:#fff;--t1:#1A1A1A;--t2:#8A8A8E;--line:#ECEEF3;--accent:#4F46E5;--hero:#EEEDFD;--heroline:#E0DDFB;--chipbg:#fff;--chipfg:#4F46E5;--okbg:#E6F5EC;--okfg:#1B7A43;--seg:#F0F1F6;--input:#FAFAFD}
+.d3{--bg:#121214;--card:#1E1E20;--t1:#F2F2F4;--t2:#9A9AA0;--line:#2A2A2E;--accent:#00C951;--hero:#15271E;--heroline:#1E3A2A;--chipbg:#232523;--chipfg:#00C951;--okbg:#153625;--okfg:#4ADE80;--seg:#262628;--input:#242426}
+.d3 .status,.d3 .appbar,.d3 .bottom{color:var(--t1)}
+@media(max-width:430px){.hd p{max-width:340px;margin:6px auto 0}}
+</style></head><body>
+<div class="hd"><h1>AutoSend — 3 design directions</h1><p>Chrome-এ ৩টা design খুলেছি। কোনটা পছন্দ? (মিলিয়েও বলতে পারো: “২ কিন্তু রঙটা ১-এর”)</p></div>
+<div class="strip">
+
+<!-- 1 -->
+<div class="opt"><div class="cap"><b>① WhatsApp Green</b><span>Friendly, familiar, clean — WhatsApp-এর সাথে মেলে</span></div>
+<div class="phone d1"><div class="notch"></div>
+<div class="status"><span>9:41</span><span class="dots">●●● ▰</span></div>
+<div class="appbar"><div class="mark">↗</div><div><div class="appname">AutoSend</div><div class="appsub">WhatsApp Scheduler</div></div><div class="more">⋯</div></div>
+<div class="content">
+ <div class="card hero"><div class="heroTop"><span class="lbl">Automation</span><div class="sw"></div></div><div class="bigtime">08:30 <small>AM</small></div><div class="heroMeta"><span class="chip">Daily</span><span class="chip g">● On</span><span class="chip">Next: tomorrow 8:30 AM</span></div></div>
+ <div class="seclabel">Schedule</div>
+ <div class="card"><div class="row"><span class="k">Send time</span><span class="v">08:30</span><div class="seg"><b class="on">AM</b><b>PM</b></div></div><div class="row"><span class="k">Repeat</span><span class="v">Every day</span><span style="color:var(--t2)">▾</span></div></div>
+ <div class="card"><div class="seclabel" style="margin-bottom:8px">Recipient</div><div class="field">Family Group ▾</div></div>
+ <div class="card"><div class="seclabel" style="margin-bottom:8px">Message</div><div class="field mut tall">Good morning! Have a great day 🌞 (edit this…)</div></div>
+ <div class="card"><div class="seclabel" style="margin-bottom:8px">Permissions</div><div class="perms"><span class="pill ok">✓ Accessibility</span><span class="pill ok">✓ Alarms</span><span class="pill">! Notifications</span></div></div>
+</div>
+<div class="bottom"><div class="cta">Save schedule</div><div class="test">Send a test message now</div></div>
+</div></div>
+
+<!-- 2 -->
+<div class="opt"><div class="cap"><b>② Indigo Focus</b><span>Calm, professional tool feel — high trust</span></div>
+<div class="phone d2"><div class="notch"></div>
+<div class="status"><span>9:41</span><span class="dots">●●● ▰</span></div>
+<div class="appbar"><div class="mark">↗</div><div><div class="appname">AutoSend</div><div class="appsub">WhatsApp Scheduler</div></div><div class="more">⋯</div></div>
+<div class="content">
+ <div class="card hero"><div class="heroTop"><span class="lbl">Automation</span><div class="sw"></div></div><div class="bigtime">08:30 <small>AM</small></div><div class="heroMeta"><span class="chip">Daily</span><span class="chip g">● On</span><span class="chip">Next: tomorrow 8:30 AM</span></div></div>
+ <div class="seclabel">Schedule</div>
+ <div class="card"><div class="row"><span class="k">Send time</span><span class="v">08:30</span><div class="seg"><b class="on">AM</b><b>PM</b></div></div><div class="row"><span class="k">Repeat</span><span class="v">Every day</span><span style="color:var(--t2)">▾</span></div></div>
+ <div class="card"><div class="seclabel" style="margin-bottom:8px">Recipient</div><div class="field">Family Group ▾</div></div>
+ <div class="card"><div class="seclabel" style="margin-bottom:8px">Message</div><div class="field mut tall">Good morning! Have a great day 🌞 (edit this…)</div></div>
+ <div class="card"><div class="seclabel" style="margin-bottom:8px">Permissions</div><div class="perms"><span class="pill ok">✓ Accessibility</span><span class="pill ok">✓ Alarms</span><span class="pill">! Notifications</span></div></div>
+</div>
+<div class="bottom"><div class="cta">Save schedule</div><div class="test">Send a test message now</div></div>
+</div></div>
+
+<!-- 3 -->
+<div class="opt"><div class="cap"><b>③ Dark Neon</b><span>Sleek control-panel vibe — dark, punchy accent</span></div>
+<div class="phone d3"><div class="notch"></div>
+<div class="status"><span>9:41</span><span class="dots">●●● ▰</span></div>
+<div class="appbar"><div class="mark">↗</div><div><div class="appname">AutoSend</div><div class="appsub">WhatsApp Scheduler</div></div><div class="more">⋯</div></div>
+<div class="content">
+ <div class="card hero"><div class="heroTop"><span class="lbl">Automation</span><div class="sw"></div></div><div class="bigtime">08:30 <small>AM</small></div><div class="heroMeta"><span class="chip">Daily</span><span class="chip g">● On</span><span class="chip">Next: tomorrow 8:30 AM</span></div></div>
+ <div class="seclabel">Schedule</div>
+ <div class="card"><div class="row"><span class="k">Send time</span><span class="v">08:30</span><div class="seg"><b class="on">AM</b><b>PM</b></div></div><div class="row"><span class="k">Repeat</span><span class="v">Every day</span><span style="color:var(--t2)">▾</span></div></div>
+ <div class="card"><div class="seclabel" style="margin-bottom:8px">Recipient</div><div class="field">Family Group ▾</div></div>
+ <div class="card"><div class="seclabel" style="margin-bottom:8px">Message</div><div class="field mut tall">Good morning! Have a great day 🌞 (edit this…)</div></div>
+ <div class="card"><div class="seclabel" style="margin-bottom:8px">Permissions</div><div class="perms"><span class="pill ok">✓ Accessibility</span><span class="pill ok">✓ Alarms</span><span class="pill">! Notifications</span></div></div>
+</div>
+<div class="bottom"><div class="cta">Save schedule</div><div class="test">Send a test message now</div></div>
+</div></div>
+
+</div></body></html>

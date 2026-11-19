@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_name">AutoSend</string>
+  <string name="accessibility_description">AutoSend uses this access only to open your chosen WhatsApp chat, type your saved message, and tap Send when your schedule fires or when you press Test Send.</string>
+</resources>
