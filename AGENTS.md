@@ -65,12 +65,14 @@ No local gradle/java on Termux — all builds run on GitHub Actions.
   Enter -> poll `KeyguardManager.isKeyguardLocked()/isDeviceLocked()` -> runSend;
   failure path is terminal so it re-locks. versionCode 3 / versionName 1.2.
   NOT yet verified on device — needs a scheduled-send test with a password lock.
+  Build: first two runs failed (Maven outage, then missing GestureDescription
+  import at commit 0c1a41d); fixed in 3a94d9a. Run 44674631508 green, release
+  apk-10 APK HTTP 200. versionCode 3 / versionName 1.2.
 
 ## Current state
 
-Latest shipped: apk-8 (commit ce7cda5), build green, APK HTTP 200 — screen-off
-sending works on Swipe/no-lock devices. Working tree now has the unverified
-auto-unlock feature (not yet committed/built). Send failures show the failing
+Latest shipped: apk-10 (commit 3a94d9a), build green, APK HTTP 200 — screen-off
+sending plus best-effort password auto-unlock (unverified on device). Send failures show the failing
 stage ("Chat not found", "Message box not found", "Send button not found",
 "Could not open WhatsApp chats list", "Could not unlock screen"). Search-result
 selection walks up to 6 ancestors and falls back to the first word.

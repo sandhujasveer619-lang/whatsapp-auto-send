@@ -31,10 +31,15 @@ Key decisions:
 
 - [x] Build green (run 44671435403) + APK verified HTTP 200 (release apk-7).
 
-- [ ] Add best-effort auto-unlock for password locks (user chose in-app route):
+- [x] Add best-effort auto-unlock for password locks (user chose in-app route):
   password entered once in-app and stored in private prefs only (NEVER in repo);
   canPerformGestures enabled; trigger wakes, swipes up, sets text (falls back to
   tapping keyboard keys), taps Enter, polls KeyguardManager, then sends and
-  re-locks. versionCode 3 / versionName 1.2. Awaiting build + on-device test.
+  re-locks. versionCode 3 / versionName 1.2.
+- [x] Build green (run 44674631508, commit 3a94d9a) + APK verified HTTP 200
+  (release apk-10).
 
-NOW: implementing auto-unlock; next is commit + push + watch build + deliver APK.
+NOW: DONE — auto-unlock shipped but UNVERIFIED on device. User must install
+apk-10, re-enable Accessibility (config changed), enter lock password in the new
+card, switch auto-unlock on, and test a scheduled send with a password lock.
+If "Could not unlock screen" appears, try Swipe/no lock for unattended sends.
