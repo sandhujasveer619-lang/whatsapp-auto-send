@@ -33,6 +33,9 @@ button,input,select,textarea{font-family:inherit;color:inherit}
 .chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
 .chip{font-size:11px;font-weight:600;padding:5px 10px;border-radius:20px;background:var(--chipbg);color:var(--t2)}
 .chip.on{background:var(--okbg);color:var(--okfg)}
+.optTop{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.optTitle{font-size:13px;font-weight:700;color:var(--t1)}
+.optSub{font-size:11px;color:var(--t2);margin-top:3px;line-height:1.4}
 .seclabel{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t2);margin-bottom:12px}
 .row{display:flex;align-items:center;gap:10px;min-height:44px}
 .row .k{font-size:13px;color:var(--t2);width:82px;flex:0 0 82px}
@@ -114,6 +117,16 @@ summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--accent);paddin
 </div>
 
 <div class="card">
+  <div class="optTop">
+    <div class="grow">
+      <div class="optTitle">Send while screen is off</div>
+      <div class="optSub">Wakes the screen briefly, sends, then locks it again.</div>
+    </div>
+    <button id="swOff" class="sw" onclick="toggleScreenOff()" aria-label="Toggle screen-off sending"></button>
+  </div>
+</div>
+
+<div class="card">
   <div class="seclabel">Recipient</div>
   <div class="pickRow">
     <input id="chat" type="text" placeholder="Group / chat name" autocomplete="off" spellcheck="false">
@@ -143,7 +156,10 @@ summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--accent);paddin
       3. Keep WhatsApp installed and log in.<br>
       4. Tap <b>Browse</b> next to Recipient to pick a real chat/group — or type the exact name.<br>
       5. Add the message, then tap <b>Save schedule</b>.<br>
-      6. Tap <b>Send a test message</b> to verify.
+      6. Tap <b>Send a test message</b> to verify.<br>
+      7. Keep <b>Send while screen is off</b> on to send even when the display is
+      asleep — the screen wakes for a moment and locks again after sending.
+      A PIN/pattern lock screen must be unlocked once before this can work.
     </div>
   </details>
 </div>
@@ -165,7 +181,7 @@ summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--accent);paddin
 <div class="toast" id="toast"></div>
 
 <script>
-var st={enabled:false,hour:8,minute:30,ampm:'AM',chat:'',message:''};
+var st={enabled:false,hour:8,minute:30,ampm:'AM',chat:'',message:'',screenOff:true};
 var chatNames=[],lastResultShown=null;
 function el(id){return document.getElementById(id)}
 function call(n){try{var a=window.Android&&window.Android[n];return a?a.apply(window.Android,Array.prototype.slice.call(arguments,1)):null}catch(e){return null}}
@@ -187,6 +203,7 @@ function nextText(){
 }
 function render(){
   el('sw').classList.toggle('on',st.enabled);
+  el('swOff').classList.toggle('on',st.screenOff);
   var h=parseInt(el('hour').value,10)||12,m=parseInt(el('minute').value,10)||0;
   el('bigtime').innerHTML=pad(h)+':'+pad(m)+' <small>'+st.ampm+'</small>';
   var sc=el('stateChip');sc.textContent=st.enabled?'● On':'● Off';sc.classList.toggle('on',st.enabled);
@@ -198,6 +215,7 @@ function load(){
   var o;try{o=JSON.parse(raw)}catch(e){return}
   st.enabled=!!o.enabled;st.hour=o.hour||8;st.minute=o.minute||30;
   st.chat=o.chat||'';st.message=o.message||'';
+  st.screenOff=o.screenOff!==false;
   var cj=call('getChats');
   if(cj){try{chatNames=JSON.parse(cj)||[]}catch(e){}}
   showResult(call('getLastResult'));
@@ -209,10 +227,13 @@ function load(){
 }
 function save(silent){
   st.chat=el('chat').value.trim();st.message=el('message').value;
-  call('save',String(st.enabled),String(to24()),String(parseInt(el('minute').value,10)||0),st.chat,st.message);
+  call('save',String(st.enabled),String(to24()),String(parseInt(el('minute').value,10)||0),
+       st.chat,st.message,String(st.screenOff));
   render();if(!silent)toast('Schedule saved');
 }
 function toggle(){st.enabled=!st.enabled;save(true);toast(st.enabled?'Automation ON':'Automation OFF')}
+function toggleScreenOff(){st.screenOff=!st.screenOff;save(true);
+  toast(st.screenOff?'Screen-off sending ON':'Screen-off sending OFF')}
 function testSend(){
   if(!el('chat').value.trim()||!el('message').value.trim()){toast('Add a chat name and message first');return}
   save(true);call('testSend');toast('Opening WhatsApp...');

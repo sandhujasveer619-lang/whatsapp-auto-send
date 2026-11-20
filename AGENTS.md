@@ -41,10 +41,18 @@ No local gradle/java on Termux — all builds run on GitHub Actions.
   UI; AlarmManager setExactAndAllowWhileIdle, re-arm on reboot.
 - 2026-11-20: recipient picker added (Browse reads real WhatsApp chat list).
 - 2026-11-20: send chain hardened; send result shown on-screen + Android Toast.
+- 2026-11-20: "Send while screen off" toggle (pref `screen_off`, default true).
+  Trigger detects `!PowerManager.isInteractive()`, takes a FULL wake lock, and
+  marks a prelude; service launches `SendBridgeActivity` (translucent, keyguard
+  dismiss) then waits 2.2s before the normal chain. Terminal `report(msg,true)`
+  re-locks via `GLOBAL_ACTION_LOCK_SCREEN` and releases the lock. Secure (PIN)
+  keyguard cannot be dismissed unattended — send will report a failure.
+  versionCode 2 / versionName 1.1.
 
 ## Current state
 
-Release apk-5 (commit 59270b8), build green, APK HTTP 200. User testing real
+Release apk-6 (commit 5c089a2), build green, APK HTTP 200. User testing real
 send. If a send fails, the app shows the failing stage ("Chat not found",
 "Message box not found", "Send button not found", "Could not open WhatsApp
-chats list").
+chats list"). Search-result selection now walks up to 6 ancestors for a
+clickable row and falls back to the first word of the chat name.

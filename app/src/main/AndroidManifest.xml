@@ -38,6 +38,13 @@
           android:resource="@xml/accessibility_service_config"/>
     </service>
 
+    <activity
+        android:name=".SendBridgeActivity"
+        android:theme="@style/Theme.AutoSend.Bridge"
+        android:exported="false"
+        android:excludeFromRecents="true"
+        android:noHistory="true"/>
+
     <receiver android:name=".ScheduleReceiver" android:exported="false"/>
 
     <receiver android:name=".BootReceiver" android:exported="true">

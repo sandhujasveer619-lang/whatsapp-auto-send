@@ -10,6 +10,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
@@ -202,13 +204,33 @@ public class WhatsappAccessibilityService extends AccessibilityService {
         return low.matches(".*[a-z0-9].*");
     }
 
-    private void report(String msg) {
+    private void report(String msg, boolean terminal) {
         Settings.saveResult(this, msg);
         try { Toast.makeText(this, msg, Toast.LENGTH_LONG).show(); } catch (Throwable ignored) {}
         Intent b = new Intent(ACTION_RESULT);
         b.setPackage(getPackageName());
         b.putExtra(EXTRA_RESULT, msg);
         try { sendBroadcast(b); } catch (Throwable ignored) {}
+        if (terminal && Trigger.consumeScreenWasOff()) {
+            relockScreen();
+            Trigger.releaseWakeLock();
+        }
+    }
+
+    private void relockScreen() {
+        if (Build.VERSION.SDK_INT >= 28) {
+            try {
+                performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN);
+                return;
+            } catch (Throwable ignored) {}
+        }
+        try {
+            PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+            if (pm != null) {
+                pm.getClass().getMethod("goToSleep", long.class)
+                        .invoke(pm, SystemClock.uptimeMillis());
+            }
+        } catch (Throwable ignored) {}
     }
 
     @Override
@@ -242,7 +264,22 @@ public class WhatsappAccessibilityService extends AccessibilityService {
         if (chat == null || message == null) return;
         if (chat.trim().isEmpty() || message.trim().isEmpty()) return;
 
-        report("Opening WhatsApp...");
+        if (Trigger.consumeScreenOffPrelude()) {
+            try {
+                Intent bridge = new Intent(this, SendBridgeActivity.class);
+                bridge.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_HISTORY);
+                startActivity(bridge);
+            } catch (Throwable t) {
+                Log.w("AutoSend", "screen bridge failed", t);
+            }
+            handler.postDelayed(() -> runSend(chat, message), 2200);
+        } else {
+            runSend(chat, message);
+        }
+    }
+
+    private void runSend(final String chat, final String message) {
+        report("Opening WhatsApp...", false);
         launchWhatsApp();
         handler.postDelayed(() -> ensureChatList(chat, message, 0), 3000);
     }
@@ -253,7 +290,7 @@ public class WhatsappAccessibilityService extends AccessibilityService {
             return;
         }
         if (attempt >= 3) {
-            report("Could not open WhatsApp chats list");
+            report("Could not open WhatsApp chats list", true);
             return;
         }
         try { performGlobalAction(GLOBAL_ACTION_BACK); } catch (Throwable ignored) {}
@@ -296,7 +333,7 @@ public class WhatsappAccessibilityService extends AccessibilityService {
             return;
         }
         if (attempt > 6) {
-            report("Chat not found: " + chat);
+            report("Chat not found: " + chat, true);
             return;
         }
         handler.postDelayed(() -> openChat(chat, message, attempt + 1), 700);
@@ -304,7 +341,7 @@ public class WhatsappAccessibilityService extends AccessibilityService {
 
     private void typeSearch(final String chat, final String message, final int attempt) {
         if (attempt > 8) {
-            report("Search box not found");
+            report("Search box not found", true);
             return;
         }
         AccessibilityNodeInfo input = findById("search_input", "search_src_text", "search_query",
@@ -325,7 +362,7 @@ public class WhatsappAccessibilityService extends AccessibilityService {
     private void pickResult(final String chat, final String message, final int attempt,
                             final String query) {
         if (attempt > 13) {
-            report("Chat not found: " + chat);
+            report("Chat not found: " + chat, true);
             return;
         }
         AccessibilityNodeInfo node = findLike(query);
@@ -349,7 +386,7 @@ public class WhatsappAccessibilityService extends AccessibilityService {
 
     private void typeMessage(final String message, final int attempt) {
         if (attempt > 10) {
-            report("Message box not found");
+            report("Message box not found", true);
             return;
         }
         AccessibilityNodeInfo input = findById("entry", "composer_input", "message_input",
@@ -366,7 +403,7 @@ public class WhatsappAccessibilityService extends AccessibilityService {
 
     private void tapSend(final String message, final int attempt) {
         if (attempt > 10) {
-            report("Send button not found");
+            report("Send button not found", true);
             return;
         }
         AccessibilityNodeInfo send = findById("send", "send_button", "composer_send", "send_message",
@@ -375,7 +412,7 @@ public class WhatsappAccessibilityService extends AccessibilityService {
         if (send == null) send = findByText("Send");
 
         if (send != null && click(send)) {
-            report("Sent to " + pendingChat);
+            report("Sent to " + pendingChat, true);
         } else {
             handler.postDelayed(() -> tapSend(message, attempt + 1), 700);
         }

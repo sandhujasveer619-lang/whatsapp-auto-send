@@ -156,6 +156,7 @@ public class MainActivity extends Activity {
                 o.put("minute", Settings.minute(MainActivity.this));
                 o.put("chat", Settings.chat(MainActivity.this));
                 o.put("message", Settings.message(MainActivity.this));
+                o.put("screenOff", Settings.screenOff(MainActivity.this));
                 return o.toString();
             } catch (Throwable t) {
                 return "{}";
@@ -163,12 +164,14 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
-        public void save(String enabled, String hour, String minute, String chat, String message) {
+        public void save(String enabled, String hour, String minute, String chat,
+                         String message, String screenOff) {
             int h = 8;
             int m = 30;
             try { h = Integer.parseInt(hour); } catch (Throwable ignored) {}
             try { m = Integer.parseInt(minute); } catch (Throwable ignored) {}
-            Settings.save(MainActivity.this, Boolean.parseBoolean(enabled), h, m, chat, message);
+            boolean off = screenOff == null || Boolean.parseBoolean(screenOff);
+            Settings.save(MainActivity.this, Boolean.parseBoolean(enabled), h, m, chat, message, off);
             Scheduler.schedule(MainActivity.this);
         }
 

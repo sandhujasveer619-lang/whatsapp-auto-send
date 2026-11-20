@@ -26,14 +26,26 @@ public final class Settings {
         return prefs(c).getString("message", "");
     }
 
+    // Default ON: with the screen off there is no interactive window, so the
+    // old behaviour could not drive WhatsApp's UI at all.
+    public static boolean screenOff(Context c) {
+        return prefs(c).getBoolean("screen_off", true);
+    }
+
     public static void save(Context c, boolean enabled, int hour, int minute,
                             String chat, String message) {
+        save(c, enabled, hour, minute, chat, message, screenOff(c));
+    }
+
+    public static void save(Context c, boolean enabled, int hour, int minute,
+                            String chat, String message, boolean screenOff) {
         prefs(c).edit()
                 .putBoolean("enabled", enabled)
                 .putInt("hour", hour)
                 .putInt("minute", minute)
                 .putString("chat", chat == null ? "" : chat)
                 .putString("message", message == null ? "" : message)
+                .putBoolean("screen_off", screenOff)
                 .apply();
     }
 

@@ -20,6 +20,13 @@ Key decisions:
 - [x] Fix: WhatsApp opens but message does not send — harden send chain (force chats list via BACK, flexible chat-name match, wider element ids, longer waits, on-screen result reporting)
 - [x] Fix CI compile error: findByText(String,String) overload ambiguity; build green, release apk-5 verified HTTP 200
 
-- [ ] Fix "Chat not found" when tapping search result (e.g. "jot Bro"): click walks 6 ancestors, clickable-row subtree fallback, first-word query retry, skip editable field
+- [x] Fix "Chat not found" when tapping search result (e.g. "jot Bro"): click walks 6 ancestors, clickable-row subtree fallback, first-word query retry, skip editable field (run 44669299465 success, apk-6 HTTP 200)
 
-NOW: fixing search-result selection after user reported "Chat not found"; rebuilding.
+- [x] Add "Send while screen is off": persistent toggle (default ON); on a
+  screen-off alarm, acquire a FULL wake lock, launch invisible SendBridgeActivity
+  to dismiss the keyguard, then run the normal send chain; on a terminal result
+  re-lock the screen (GLOBAL_ACTION_LOCK_SCREEN, goToSleep fallback pre-28) and
+  release the wake lock. Known limit: a secure PIN/pattern lock must be unlocked
+  once; the system cannot dismiss a secure keyguard unattended.
+
+NOW: implementing screen-off sending — next step is commit + push + watch build.
