@@ -265,7 +265,8 @@ public class WhatsappAccessibilityService extends AccessibilityService {
         if (n == null) n = findByDescLike("search");
         if (n == null) n = findById("search", "action_search", "conversations_search",
                 "search_button", "search_icon", "conversations_list_search");
-        if (n == null) n = findByText("Search chats", "Search");
+        if (n == null) n = findByText("Search chats");
+        if (n == null) n = findByText("Search");
         return n;
     }
 
