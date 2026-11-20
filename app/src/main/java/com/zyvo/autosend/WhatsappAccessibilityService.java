@@ -14,12 +14,37 @@ import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 
+import org.json.JSONArray;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+
 public class WhatsappAccessibilityService extends AccessibilityService {
     public static final String ACTION_TRIGGER = "com.zyvo.autosend.TRIGGER";
 
     private static volatile String pendingChat;
     private static volatile String pendingMessage;
     private static volatile boolean pending;
+    private static volatile boolean scanPending;
+
+    private static final String[] NAME_IDS = {
+            "contact_name", "subject", "conversation_name", "chat_name",
+            "group_name", "contactname", "title"
+    };
+
+    private static final String[] IGNORE = {
+            "search", "search chats", "chats", "archived", "new chat", "communities",
+            "status", "calls", "all", "unread", "favorites", "groups", "messages",
+            "back", "menu", "more", "settings", "profile", "camera", "attach",
+            "send", "emoji", "type a message", "message", "today", "yesterday",
+            "online", "typing", "add", "cancel", "ok", "done", "select", "contacts",
+            "new group", "new community", "invite", "notifications", "media",
+            "documents", "links", "notes", "view all", "see all"
+    };
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private boolean registered;
@@ -27,6 +52,10 @@ public class WhatsappAccessibilityService extends AccessibilityService {
     private final BroadcastReceiver triggerReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context c, Intent i) {
+            if (i != null && ChatPicker.ACTION_SCAN.equals(i.getAction())) {
+                beginScan();
+                return;
+            }
             onTrigger();
         }
     };
@@ -53,7 +82,9 @@ public class WhatsappAccessibilityService extends AccessibilityService {
     protected void onServiceConnected() {
         super.onServiceConnected();
         if (!registered) {
-            IntentFilter filter = new IntentFilter(ACTION_TRIGGER);
+            IntentFilter filter = new IntentFilter();
+            filter.addAction(ACTION_TRIGGER);
+            filter.addAction(ChatPicker.ACTION_SCAN);
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     registerReceiver(triggerReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
@@ -70,12 +101,102 @@ public class WhatsappAccessibilityService extends AccessibilityService {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent != null && ACTION_TRIGGER.equals(intent.getAction())) {
+        if (intent != null && ChatPicker.ACTION_SCAN.equals(intent.getAction())) {
+            beginScan();
+        } else if (intent != null && ACTION_TRIGGER.equals(intent.getAction())) {
             onTrigger();
         } else if (pending) {
             handler.postDelayed(this::onTrigger, 300);
         }
         return START_STICKY;
+    }
+
+    private void beginScan() {
+        if (scanPending) return;
+        scanPending = true;
+        handler.postDelayed(this::scanChats, 250);
+    }
+
+    private void scanChats() {
+        if (!scanPending) return;
+        scanPending = false;
+        launchWhatsApp();
+        handler.postDelayed(this::ensureListAndDump, 2600);
+    }
+
+    private void ensureListAndDump() {
+        boolean onList = findByDesc("Search", "Search chats", "search") != null
+                || findById("search", "action_search", "conversations_search", "search_button") != null;
+        if (!onList) {
+            try { performGlobalAction(GLOBAL_ACTION_BACK); } catch (Throwable ignored) {}
+            handler.postDelayed(this::dumpChats, 1500);
+        } else {
+            dumpChats();
+        }
+    }
+
+    private void dumpChats() {
+        Set<String> found = new LinkedHashSet<>();
+        collectById(root(), found);
+        if (found.isEmpty()) collectBroad(root(), found);
+
+        List<String> names = new ArrayList<>(found);
+        Collections.sort(names, String.CASE_INSENSITIVE_ORDER);
+        if (names.size() > 200) names = names.subList(0, 200);
+
+        JSONArray arr = new JSONArray();
+        for (String n : names) arr.put(n);
+        Settings.saveChats(this, arr.toString());
+
+        Intent ready = new Intent(ChatPicker.ACTION_CHATS_READY);
+        ready.setPackage(getPackageName());
+        try { sendBroadcast(ready); } catch (Throwable ignored) {}
+
+        Intent main = new Intent(this, MainActivity.class);
+        main.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        try { startActivity(main); } catch (Throwable ignored) {}
+    }
+
+    private void collectById(AccessibilityNodeInfo node, Set<String> out) {
+        if (node == null) return;
+        String id = node.getViewIdResourceName();
+        if (id != null) {
+            for (String key : NAME_IDS) {
+                if (id.contains(key)) {
+                    String s = textOf(node);
+                    if (valid(s)) out.add(s);
+                    break;
+                }
+            }
+        }
+        for (int i = 0; i < node.getChildCount(); i++) {
+            collectById(node.getChild(i), out);
+        }
+    }
+
+    private void collectBroad(AccessibilityNodeInfo node, Set<String> out) {
+        if (node == null) return;
+        if (!node.isEditable() && !"android.widget.Button".equals(String.valueOf(node.getClassName()))) {
+            String s = textOf(node);
+            if (valid(s)) out.add(s);
+        }
+        for (int i = 0; i < node.getChildCount(); i++) {
+            collectBroad(node.getChild(i), out);
+        }
+    }
+
+    private static String textOf(AccessibilityNodeInfo node) {
+        CharSequence t = node.getText();
+        if (t == null || t.toString().trim().isEmpty()) t = node.getContentDescription();
+        return t == null ? "" : t.toString().trim();
+    }
+
+    private static boolean valid(String s) {
+        if (s.isEmpty() || s.length() > 80 || s.indexOf('\n') >= 0) return false;
+        String low = s.toLowerCase(Locale.ROOT);
+        for (String bad : IGNORE) if (low.equals(bad)) return false;
+        if (low.matches("[0-9:/\\s-]+")) return false;
+        return low.matches(".*[a-z0-9].*");
     }
 
     @Override

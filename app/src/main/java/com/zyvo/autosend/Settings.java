@@ -37,6 +37,21 @@ public final class Settings {
                 .apply();
     }
 
+    public static String chatsJson(Context c) {
+        return prefs(c).getString("chats_json", "[]");
+    }
+
+    public static long lastScan(Context c) {
+        return prefs(c).getLong("chats_scan", 0L);
+    }
+
+    public static void saveChats(Context c, String json) {
+        prefs(c).edit()
+                .putString("chats_json", json == null ? "[]" : json)
+                .putLong("chats_scan", System.currentTimeMillis())
+                .apply();
+    }
+
     private static SharedPreferences prefs(Context c) {
         return c.getSharedPreferences(PREF, Context.MODE_PRIVATE);
     }

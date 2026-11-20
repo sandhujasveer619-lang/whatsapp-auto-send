@@ -6,8 +6,10 @@ Plan:
 - [x] Scaffold Gradle project + GitHub Actions build workflow
 - [x] Build WebView UI (Dark Neon) with toggle, time picker, message, recipient, permissions
 - [x] Build automation engine (AccessibilityService + AlarmManager + boot receiver)
-- [ ] Push to GitHub and watch build to green
-- [ ] Deliver APK link + setup instructions
+- [x] Push to GitHub and watch build to green (run 44560868119 success, commit 1fab5f1)
+- [x] Deliver APK link + setup instructions (release apk-2, APK HTTP 200 verified)
+- [ ] Add recipient picker: Browse button reads real WhatsApp chat/group list via AccessibilityService, searchable sheet to pick a chat
+- [ ] Rebuild to green + deliver new APK
 
 Key decisions:
 - Design 3 = Dark Neon (#121214 bg, #00C951 accent).
@@ -15,4 +17,5 @@ Key decisions:
 - Scheduling: AlarmManager setExactAndAllowWhileIdle, re-armed after each fire and on reboot.
 - Sources in $HOME/whatsapp-auto-send (not shared storage) so git works.
 
-NOW: pushing to GitHub and watching the build.
+NOW: adding the recipient picker (ChatPicker.java + AccessibilityService scan + WebView sheet),
+then rebuild + deliver new APK.

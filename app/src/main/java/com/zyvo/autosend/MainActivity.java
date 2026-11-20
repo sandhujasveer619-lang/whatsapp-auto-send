@@ -3,8 +3,10 @@ package com.zyvo.autosend;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlarmManager;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
@@ -21,6 +23,15 @@ import org.json.JSONObject;
 public class MainActivity extends Activity {
     private static final int REQUEST_NOTIFICATIONS = 7;
     private WebView web;
+    private long lastScan;
+    private boolean chatsReceiverRegistered;
+
+    private final BroadcastReceiver chatsReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context c, Intent i) {
+            injectChatsIfNew();
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,6 +44,17 @@ public class MainActivity extends Activity {
         web.addJavascriptInterface(new JsBridge(), "Android");
         setContentView(web);
         web.loadUrl("file:///android_asset/index.html");
+
+        lastScan = Settings.lastScan(this);
+        IntentFilter filter = new IntentFilter(ChatPicker.ACTION_CHATS_READY);
+        try {
+            if (Build.VERSION.SDK_INT >= 33) {
+                registerReceiver(chatsReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+            } else {
+                registerReceiver(chatsReceiver, filter);
+            }
+            chatsReceiverRegistered = true;
+        } catch (Throwable ignored) {}
 
         if (Build.VERSION.SDK_INT >= 33 &&
                 ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
@@ -56,8 +78,38 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        injectChatsIfNew();
         web.post(() -> web.evaluateJavascript(
                 "if (typeof refreshPerms === 'function') refreshPerms();", null));
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        injectChatsIfNew();
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (chatsReceiverRegistered) {
+            try { unregisterReceiver(chatsReceiver); } catch (Throwable ignored) {}
+            chatsReceiverRegistered = false;
+        }
+        super.onDestroy();
+    }
+
+    private void injectChatsIfNew() {
+        long current = Settings.lastScan(this);
+        if (current == 0L || current == lastScan) return;
+        lastScan = current;
+        String json = Settings.chatsJson(this);
+        if (json == null) json = "[]";
+        final String safe = json.replace("\\", "\\\\")
+                .replace("'", "\\'")
+                .replace("\r", "")
+                .replace("\n", "\\n");
+        web.post(() -> web.evaluateJavascript(
+                "if (typeof onChatsListed === 'function') onChatsListed('" + safe + "');", null));
     }
 
     private class JsBridge {
@@ -138,6 +190,26 @@ public class MainActivity extends Activity {
                                     getPackageName()));
                 } catch (Throwable ignored) {}
             }
+        }
+
+        @JavascriptInterface
+        public String getChats() {
+            return Settings.chatsJson(MainActivity.this);
+        }
+
+        @JavascriptInterface
+        public void pickChats() {
+            if (!WhatsappAccessibilityService.isEnabled(MainActivity.this)) {
+                web.post(() -> web.evaluateJavascript(
+                        "if (typeof toast === 'function') toast('Enable Accessibility first');", null));
+                try {
+                    startActivity(new Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS));
+                } catch (Throwable ignored) {}
+                return;
+            }
+            ChatPicker.requestScan(MainActivity.this);
+            web.post(() -> web.evaluateJavascript(
+                    "if (typeof toast === 'function') toast('Opening WhatsApp to read chats...');", null));
         }
 
         @JavascriptInterface

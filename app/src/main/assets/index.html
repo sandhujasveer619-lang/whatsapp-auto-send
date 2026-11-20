@@ -69,6 +69,26 @@ summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--accent);paddin
   color:#fff;font-size:13px;font-weight:600;padding:11px 18px;border-radius:22px;opacity:0;
   transition:.25s;pointer-events:none;z-index:9;border:1px solid var(--line)}
 .toast.show{opacity:1;transform:translate(-50%,0)}
+.pickRow{display:flex;gap:8px;align-items:stretch}
+.pickRow input{flex:1;min-width:0}
+.pickbtn{flex:0 0 auto;border:1px solid var(--heroline);background:#15271E;color:var(--accent);
+  font-size:12px;font-weight:700;border-radius:11px;padding:0 13px;cursor:pointer}
+.pickbtn:active{opacity:.7}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.66);display:none;align-items:flex-end;z-index:20}
+.modal.show{display:flex}
+.sheet{width:100%;max-width:520px;margin:0 auto;background:var(--card);border-radius:20px 20px 0 0;
+  padding:16px 16px calc(env(safe-area-inset-bottom) + 16px);max-height:78vh;
+  display:flex;flex-direction:column}
+.sheetHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.sheetHead b{font-size:16px}
+.sheetHead button{border:0;background:#262628;color:var(--t2);width:32px;height:32px;
+  border-radius:50%;font-size:14px;cursor:pointer}
+#chatSearch{margin-bottom:8px}
+.chatList{overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch}
+.chatItem{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);
+  background:transparent;color:var(--t1);font-size:15px;font-weight:600;padding:14px 4px;cursor:pointer}
+.chatItem:active{background:#262628}
+.empty{padding:26px 8px;text-align:center;font-size:13px;color:var(--t2);line-height:1.5}
 </style></head><body>
 
 <div class="appbar">
@@ -94,8 +114,11 @@ summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--accent);paddin
 
 <div class="card">
   <div class="seclabel">Recipient</div>
-  <input id="chat" type="text" placeholder="Exact group / chat name" autocomplete="off" spellcheck="false">
-  <div class="hint">Type the name exactly as it appears in WhatsApp.</div>
+  <div class="pickRow">
+    <input id="chat" type="text" placeholder="Group / chat name" autocomplete="off" spellcheck="false">
+    <button class="pickbtn" onclick="pickChats()">Browse</button>
+  </div>
+  <div class="hint">Type the exact name, or tap Browse to pick from your WhatsApp chats &amp; groups.</div>
 </div>
 
 <div class="card">
@@ -117,8 +140,9 @@ summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--accent);paddin
       1. Turn on <b>Accessibility</b> for AutoSend in Android settings.<br>
       2. Allow <b>Alarms &amp; reminders</b> (exact alarms).<br>
       3. Keep WhatsApp installed and log in.<br>
-      4. Add the chat name and message, then tap <b>Save schedule</b>.<br>
-      5. Tap <b>Send a test message</b> to verify.
+      4. Tap <b>Browse</b> next to Recipient to pick a real chat/group — or type the exact name.<br>
+      5. Add the message, then tap <b>Save schedule</b>.<br>
+      6. Tap <b>Send a test message</b> to verify.
     </div>
   </details>
 </div>
@@ -128,10 +152,19 @@ summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--accent);paddin
   <button class="test" onclick="testSend()">Send a test message now</button>
 </div>
 
+<div class="modal" id="picker" onclick="closePicker(event)">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sheetHead"><b>Choose a chat</b><button onclick="closePicker()">✕</button></div>
+    <input id="chatSearch" type="text" placeholder="Search chats…" oninput="renderChatList()">
+    <div class="chatList" id="chatList"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
 var st={enabled:false,hour:8,minute:30,ampm:'AM',chat:'',message:''};
+var chatNames=[];
 function el(id){return document.getElementById(id)}
 function call(n){try{var a=window.Android&&window.Android[n];return a?a.apply(window.Android,Array.prototype.slice.call(arguments,1)):null}catch(e){return null}}
 function pad(n){return String(n).padStart(2,'0')}
@@ -163,6 +196,8 @@ function load(){
   var o;try{o=JSON.parse(raw)}catch(e){return}
   st.enabled=!!o.enabled;st.hour=o.hour||8;st.minute=o.minute||30;
   st.chat=o.chat||'';st.message=o.message||'';
+  var cj=call('getChats');
+  if(cj){try{chatNames=JSON.parse(cj)||[]}catch(e){}}
   st.ampm=st.hour>=12?'PM':'AM';
   var h=st.hour%12;if(h===0)h=12;
   el('hour').value=h;el('minute').value=st.minute;
@@ -185,6 +220,26 @@ function refreshPerms(){
   pill('pAcc',call('isAccessibility'));pill('pAlarm',call('canAlarms'));pill('pNotif',call('hasNotifications'));
 }
 function fix(kind){if(kind==='acc')call('openAccessibility');else if(kind==='alarm')call('openAlarms');else call('openNotifications')}
+function pickChats(){
+  if(!call('isAccessibility')){toast('Enable Accessibility first');call('openAccessibility');return}
+  toast('Reading WhatsApp chats...');call('pickChats');
+}
+function onChatsListed(json){try{chatNames=JSON.parse(json)||[]}catch(e){chatNames=[]}openPicker()}
+function openPicker(){el('picker').classList.add('show');el('chatSearch').value='';renderChatList()}
+function closePicker(e){if(e&&e.target!==el('picker'))return;el('picker').classList.remove('show')}
+function renderChatList(){
+  var q=(el('chatSearch').value||'').trim().toLowerCase(),box=el('chatList');box.innerHTML='';
+  var list=chatNames.filter(function(n){return n.toLowerCase().indexOf(q)>=0});
+  if(!list.length){
+    box.innerHTML='<div class="empty">'+(chatNames.length?'No matching chat.':'No chats read yet. Close this, open WhatsApp to your chats, then tap Browse again.')+'</div>';
+    return;
+  }
+  list.forEach(function(n){
+    var b=document.createElement('button');b.className='chatItem';b.textContent=n;
+    b.onclick=function(){el('chat').value=n;save(true);closePicker();toast('Recipient: '+n)};
+    box.appendChild(b);
+  });
+}
 ['hour','minute','message'].forEach(function(id){el(id).addEventListener('input',function(){render()})});
 buildOptions();setAmPm('AM');window.addEventListener('load',function(){setTimeout(load,150)});
 </script>
