@@ -17,6 +17,9 @@ Key decisions:
 - Scheduling: AlarmManager setExactAndAllowWhileIdle, re-armed after each fire and on reboot.
 - Sources in $HOME/whatsapp-auto-send (not shared storage) so git works.
 
-- [ ] Fix: WhatsApp opens but message does not send — harden send chain (force chats list via BACK, flexible chat-name match, wider element ids, longer waits, on-screen result reporting)
+- [x] Fix: WhatsApp opens but message does not send — harden send chain (force chats list via BACK, flexible chat-name match, wider element ids, longer waits, on-screen result reporting)
+- [x] Fix CI compile error: findByText(String,String) overload ambiguity; build green, release apk-5 verified HTTP 200
 
-NOW: hardening the send chain after user reported WhatsApp opens but no message sends; rebuilding.
+- [ ] Fix "Chat not found" when tapping search result (e.g. "jot Bro"): click walks 6 ancestors, clickable-row subtree fallback, first-word query retry, skip editable field
+
+NOW: fixing search-result selection after user reported "Chat not found"; rebuilding.

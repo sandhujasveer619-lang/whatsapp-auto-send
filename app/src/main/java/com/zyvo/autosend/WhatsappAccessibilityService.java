@@ -319,16 +319,32 @@ public class WhatsappAccessibilityService extends AccessibilityService {
     }
 
     private void pickResult(final String chat, final String message, final int attempt) {
-        if (attempt > 10) {
+        pickResult(chat, message, attempt, chat);
+    }
+
+    private void pickResult(final String chat, final String message, final int attempt,
+                            final String query) {
+        if (attempt > 13) {
             report("Chat not found: " + chat);
             return;
         }
-        AccessibilityNodeInfo node = findLike(chat);
+        AccessibilityNodeInfo node = findLike(query);
+        if (node == null) node = findClickableRow(root(), query.trim().toLowerCase(Locale.ROOT));
         if (node != null && click(node)) {
-            handler.postDelayed(() -> typeMessage(message, 0), 1500);
-        } else {
-            handler.postDelayed(() -> pickResult(chat, message, attempt + 1), 700);
+            handler.postDelayed(() -> typeMessage(message, 0), 1600);
+            return;
         }
+        String first = query.trim().split("\\s+")[0];
+        if (attempt == 7 && !first.equalsIgnoreCase(query.trim())) {
+            AccessibilityNodeInfo input = findById("search_input", "search_src_text", "search_query",
+                    "search_edit_text", "search_field", "search");
+            if (input == null) input = findEditable();
+            if (input != null && setText(input, first)) {
+                handler.postDelayed(() -> pickResult(chat, message, attempt + 1, first), 1600);
+                return;
+            }
+        }
+        handler.postDelayed(() -> pickResult(chat, message, attempt + 1, query), 700);
     }
 
     private void typeMessage(final String message, final int attempt) {
@@ -442,6 +458,7 @@ public class WhatsappAccessibilityService extends AccessibilityService {
         String target = name.trim().toLowerCase(Locale.ROOT);
         AccessibilityNodeInfo root = root();
         AccessibilityNodeInfo node = findByText(root, name);
+        if (node != null && node.isEditable()) node = null;
         if (node == null) node = findByDesc(root, name);
         if (node == null) node = findByNameLike(root, target, true);
         if (node == null) node = findByNameLike(root, target, false);
@@ -455,9 +472,9 @@ public class WhatsappAccessibilityService extends AccessibilityService {
         boolean nameish = id != null && (id.contains("contact_name") || id.contains("subject")
                 || id.contains("title") || id.contains("name") || id.contains("group"));
         String value = textOf(node).toLowerCase(Locale.ROOT);
-        if (!value.isEmpty() && value.contains(target)) {
+        if (!value.isEmpty() && value.contains(target) && !node.isEditable()) {
             boolean ok = nameishOnly ? nameish
-                    : (!node.isEditable() && value.length() <= 120
+                    : (value.length() <= 120
                     && !"android.widget.Button".equals(String.valueOf(node.getClassName())));
             if (ok) return node;
         }
@@ -466,6 +483,26 @@ public class WhatsappAccessibilityService extends AccessibilityService {
             if (found != null) return found;
         }
         return null;
+    }
+
+    private AccessibilityNodeInfo findClickableRow(AccessibilityNodeInfo node, String target) {
+        if (node == null || target.isEmpty()) return null;
+        if (node.isClickable() && subtreeContains(node, target, 0)) return node;
+        for (int i = 0; i < node.getChildCount(); i++) {
+            AccessibilityNodeInfo found = findClickableRow(node.getChild(i), target);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    private boolean subtreeContains(AccessibilityNodeInfo node, String target, int depth) {
+        if (node == null || depth > 6) return false;
+        String value = textOf(node).toLowerCase(Locale.ROOT);
+        if (!value.isEmpty() && value.contains(target)) return true;
+        for (int i = 0; i < node.getChildCount(); i++) {
+            if (subtreeContains(node.getChild(i), target, depth + 1)) return true;
+        }
+        return false;
     }
 
     private AccessibilityNodeInfo findSendLike(AccessibilityNodeInfo node) {
@@ -501,10 +538,11 @@ public class WhatsappAccessibilityService extends AccessibilityService {
 
     private boolean click(AccessibilityNodeInfo node) {
         if (node == null) return false;
-        if (node.isClickable()) return node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
-        AccessibilityNodeInfo parent = node.getParent();
-        if (parent != null && parent.isClickable()) {
-            return parent.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+        AccessibilityNodeInfo current = node;
+        for (int i = 0; i < 6 && current != null; i++) {
+            if (current.isClickable()
+                    && current.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true;
+            current = current.getParent();
         }
         return false;
     }
