@@ -13,6 +13,7 @@ import android.os.Looper;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
+import android.widget.Toast;
 
 import org.json.JSONArray;
 
@@ -25,6 +26,8 @@ import java.util.Set;
 
 public class WhatsappAccessibilityService extends AccessibilityService {
     public static final String ACTION_TRIGGER = "com.zyvo.autosend.TRIGGER";
+    public static final String ACTION_RESULT = "com.zyvo.autosend.SEND_RESULT";
+    public static final String EXTRA_RESULT = "msg";
 
     private static volatile String pendingChat;
     private static volatile String pendingMessage;
@@ -199,6 +202,15 @@ public class WhatsappAccessibilityService extends AccessibilityService {
         return low.matches(".*[a-z0-9].*");
     }
 
+    private void report(String msg) {
+        Settings.saveResult(this, msg);
+        try { Toast.makeText(this, msg, Toast.LENGTH_LONG).show(); } catch (Throwable ignored) {}
+        Intent b = new Intent(ACTION_RESULT);
+        b.setPackage(getPackageName());
+        b.putExtra(EXTRA_RESULT, msg);
+        try { sendBroadcast(b); } catch (Throwable ignored) {}
+    }
+
     @Override
     public void onDestroy() {
         if (registered) {
@@ -230,8 +242,31 @@ public class WhatsappAccessibilityService extends AccessibilityService {
         if (chat == null || message == null) return;
         if (chat.trim().isEmpty() || message.trim().isEmpty()) return;
 
+        report("Opening WhatsApp...");
         launchWhatsApp();
-        handler.postDelayed(() -> openChat(chat, message, 0), 2500);
+        handler.postDelayed(() -> ensureChatList(chat, message, 0), 3000);
+    }
+
+    private void ensureChatList(final String chat, final String message, final int attempt) {
+        if (findSearchNode() != null) {
+            openChat(chat, message, 0);
+            return;
+        }
+        if (attempt >= 3) {
+            report("Could not open WhatsApp chats list");
+            return;
+        }
+        try { performGlobalAction(GLOBAL_ACTION_BACK); } catch (Throwable ignored) {}
+        handler.postDelayed(() -> ensureChatList(chat, message, attempt + 1), 900);
+    }
+
+    private AccessibilityNodeInfo findSearchNode() {
+        AccessibilityNodeInfo n = findByDesc("Search", "Search chats", "search", "Search conversations");
+        if (n == null) n = findByDescLike("search");
+        if (n == null) n = findById("search", "action_search", "conversations_search",
+                "search_button", "search_icon", "conversations_list_search");
+        if (n == null) n = findByText("Search chats", "Search");
+        return n;
     }
 
     private void launchWhatsApp() {
@@ -249,88 +284,83 @@ public class WhatsappAccessibilityService extends AccessibilityService {
     }
 
     private void openChat(final String chat, final String message, final int attempt) {
-        if (attempt > 8) {
-            Log.w("AutoSend", "could not find search in WhatsApp");
+        AccessibilityNodeInfo search = findSearchNode();
+        if (search != null && click(search)) {
+            handler.postDelayed(() -> typeSearch(chat, message, 0), 1000);
             return;
         }
-        AccessibilityNodeInfo node = findByDesc("Search", "Search chats", "search");
-        if (node == null) {
-            node = findById("search", "action_search", "conversations_search", "search_button");
-        }
-        if (node == null) node = findByText("Search chats");
-
-        if (node != null && click(node)) {
-            handler.postDelayed(() -> typeSearch(chat, message, 0), 900);
-            return;
-        }
-
-        AccessibilityNodeInfo direct = findByText(chat);
+        AccessibilityNodeInfo direct = findLike(chat);
         if (direct != null && click(direct)) {
-            handler.postDelayed(() -> typeMessage(message, 0), 1200);
+            handler.postDelayed(() -> typeMessage(message, 0), 1500);
             return;
         }
-
-        handler.postDelayed(() -> openChat(chat, message, attempt + 1), 800);
+        if (attempt > 6) {
+            report("Chat not found: " + chat);
+            return;
+        }
+        handler.postDelayed(() -> openChat(chat, message, attempt + 1), 700);
     }
 
     private void typeSearch(final String chat, final String message, final int attempt) {
         if (attempt > 8) {
-            Log.w("AutoSend", "could not find search input");
+            report("Search box not found");
             return;
         }
         AccessibilityNodeInfo input = findById("search_input", "search_src_text", "search_query",
-                "search_edit_text", "search_field");
+                "search_edit_text", "search_field", "search");
         if (input == null) input = findEditable();
 
         if (input != null && setText(input, chat)) {
-            handler.postDelayed(() -> pickResult(chat, message, 0), 1300);
+            handler.postDelayed(() -> pickResult(chat, message, 0), 1600);
         } else {
             handler.postDelayed(() -> typeSearch(chat, message, attempt + 1), 700);
         }
     }
 
     private void pickResult(final String chat, final String message, final int attempt) {
-        if (attempt > 9) {
-            Log.w("AutoSend", "could not find chat: " + chat);
+        if (attempt > 10) {
+            report("Chat not found: " + chat);
             return;
         }
-        AccessibilityNodeInfo node = findByText(chat);
-        if (node == null) node = findByDesc(chat);
+        AccessibilityNodeInfo node = findLike(chat);
         if (node != null && click(node)) {
-            handler.postDelayed(() -> typeMessage(message, 0), 1400);
+            handler.postDelayed(() -> typeMessage(message, 0), 1500);
         } else {
             handler.postDelayed(() -> pickResult(chat, message, attempt + 1), 700);
         }
     }
 
     private void typeMessage(final String message, final int attempt) {
-        if (attempt > 9) {
-            Log.w("AutoSend", "could not find message box");
+        if (attempt > 10) {
+            report("Message box not found");
             return;
         }
         AccessibilityNodeInfo input = findById("entry", "composer_input", "message_input",
-                "chat_input", "input", "edit_text", "composer_edit_text");
+                "chat_input", "input", "edit_text", "composer_edit_text", "composer",
+                "input_text", "wacomposer_input", "text_input");
         if (input == null) input = findEditable();
 
         if (input != null && setText(input, message)) {
-            handler.postDelayed(() -> tapSend(message, 0), 600);
+            handler.postDelayed(() -> tapSend(message, 0), 900);
         } else {
             handler.postDelayed(() -> typeMessage(message, attempt + 1), 700);
         }
     }
 
     private void tapSend(final String message, final int attempt) {
-        if (attempt > 9) {
-            Log.w("AutoSend", "could not find send button");
+        if (attempt > 10) {
+            report("Send button not found");
             return;
         }
-        AccessibilityNodeInfo send = findById("send", "send_button", "composer_send", "send_message");
-        if (send == null) send = findByDesc("Send", "Send message");
+        AccessibilityNodeInfo send = findById("send", "send_button", "composer_send", "send_message",
+                "send_btn", "button_send", "send_icon", "composer_send_button");
+        if (send == null) send = findSendLike(root());
         if (send == null) send = findByText("Send");
+
         if (send != null && click(send)) {
-            Log.i("AutoSend", "Message sent to " + pendingChat);
+            report("Sent to " + pendingChat);
         } else {
-            handler.postDelayed(() -> tapSend(message, attempt + 1), 600);
+            handler.postDelayed(() -> tapSend(message, attempt + 1), 700);
         }
     }
 
@@ -391,13 +421,76 @@ public class WhatsappAccessibilityService extends AccessibilityService {
         return null;
     }
 
+    private AccessibilityNodeInfo findByDescLike(String needle) {
+        return findByDescLike(root(), needle.toLowerCase(Locale.ROOT));
+    }
+
+    private AccessibilityNodeInfo findByDescLike(AccessibilityNodeInfo node, String needle) {
+        if (node == null) return null;
+        CharSequence desc = node.getContentDescription();
+        if (desc != null && desc.toString().toLowerCase(Locale.ROOT).contains(needle)) return node;
+        for (int i = 0; i < node.getChildCount(); i++) {
+            AccessibilityNodeInfo found = findByDescLike(node.getChild(i), needle);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    private AccessibilityNodeInfo findLike(String name) {
+        if (name == null || name.trim().isEmpty()) return null;
+        String target = name.trim().toLowerCase(Locale.ROOT);
+        AccessibilityNodeInfo root = root();
+        AccessibilityNodeInfo node = findByText(root, name);
+        if (node == null) node = findByDesc(root, name);
+        if (node == null) node = findByNameLike(root, target, true);
+        if (node == null) node = findByNameLike(root, target, false);
+        return node;
+    }
+
+    private AccessibilityNodeInfo findByNameLike(AccessibilityNodeInfo node, String target,
+                                                  boolean nameishOnly) {
+        if (node == null) return null;
+        String id = node.getViewIdResourceName();
+        boolean nameish = id != null && (id.contains("contact_name") || id.contains("subject")
+                || id.contains("title") || id.contains("name") || id.contains("group"));
+        String value = textOf(node).toLowerCase(Locale.ROOT);
+        if (!value.isEmpty() && value.contains(target)) {
+            boolean ok = nameishOnly ? nameish
+                    : (!node.isEditable() && value.length() <= 120
+                    && !"android.widget.Button".equals(String.valueOf(node.getClassName())));
+            if (ok) return node;
+        }
+        for (int i = 0; i < node.getChildCount(); i++) {
+            AccessibilityNodeInfo found = findByNameLike(node.getChild(i), target, nameishOnly);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    private AccessibilityNodeInfo findSendLike(AccessibilityNodeInfo node) {
+        if (node == null) return null;
+        CharSequence desc = node.getContentDescription();
+        String id = node.getViewIdResourceName();
+        boolean match = (desc != null && desc.toString().toLowerCase(Locale.ROOT).contains("send"))
+                || (id != null && id.toLowerCase(Locale.ROOT).contains("send"));
+        if (match && (node.isClickable()
+                || (node.getParent() != null && node.getParent().isClickable()))) return node;
+        for (int i = 0; i < node.getChildCount(); i++) {
+            AccessibilityNodeInfo found = findSendLike(node.getChild(i));
+            if (found != null) return found;
+        }
+        return null;
+    }
+
     private AccessibilityNodeInfo findEditable() {
         return findEditable(root());
     }
 
     private AccessibilityNodeInfo findEditable(AccessibilityNodeInfo node) {
         if (node == null) return null;
-        if (node.isEditable() && node.isFocusable()) return node;
+        String cls = String.valueOf(node.getClassName()).toLowerCase(Locale.ROOT);
+        if ((node.isEditable() || cls.contains("edittext")) &&
+                (node.isFocusable() || node.isEditable())) return node;
         for (int i = 0; i < node.getChildCount(); i++) {
             AccessibilityNodeInfo found = findEditable(node.getChild(i));
             if (found != null) return found;

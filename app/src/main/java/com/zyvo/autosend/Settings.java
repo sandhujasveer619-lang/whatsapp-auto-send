@@ -52,6 +52,21 @@ public final class Settings {
                 .apply();
     }
 
+    public static String lastResult(Context c) {
+        return prefs(c).getString("last_result", "");
+    }
+
+    public static void saveResult(Context c, String text) {
+        prefs(c).edit()
+                .putString("last_result", text == null ? "" : text)
+                .putLong("result_ts", System.currentTimeMillis())
+                .apply();
+    }
+
+    public static long resultTs(Context c) {
+        return prefs(c).getLong("result_ts", 0L);
+    }
+
     private static SharedPreferences prefs(Context c) {
         return c.getSharedPreferences(PREF, Context.MODE_PRIVATE);
     }

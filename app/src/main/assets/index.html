@@ -89,6 +89,7 @@ summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--accent);paddin
   background:transparent;color:var(--t1);font-size:15px;font-weight:600;padding:14px 4px;cursor:pointer}
 .chatItem:active{background:#262628}
 .empty{padding:26px 8px;text-align:center;font-size:13px;color:var(--t2);line-height:1.5}
+.result{margin-top:10px;text-align:center;font-size:11px;color:var(--t2);min-height:16px}
 </style></head><body>
 
 <div class="appbar">
@@ -150,6 +151,7 @@ summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--accent);paddin
 <div class="actions">
   <button class="cta" onclick="save(false)">Save schedule</button>
   <button class="test" onclick="testSend()">Send a test message now</button>
+  <div class="result" id="result">Last send: —</div>
 </div>
 
 <div class="modal" id="picker" onclick="closePicker(event)">
@@ -164,7 +166,7 @@ summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--accent);paddin
 
 <script>
 var st={enabled:false,hour:8,minute:30,ampm:'AM',chat:'',message:''};
-var chatNames=[];
+var chatNames=[],lastResultShown=null;
 function el(id){return document.getElementById(id)}
 function call(n){try{var a=window.Android&&window.Android[n];return a?a.apply(window.Android,Array.prototype.slice.call(arguments,1)):null}catch(e){return null}}
 function pad(n){return String(n).padStart(2,'0')}
@@ -198,6 +200,7 @@ function load(){
   st.chat=o.chat||'';st.message=o.message||'';
   var cj=call('getChats');
   if(cj){try{chatNames=JSON.parse(cj)||[]}catch(e){}}
+  showResult(call('getLastResult'));
   st.ampm=st.hour>=12?'PM':'AM';
   var h=st.hour%12;if(h===0)h=12;
   el('hour').value=h;el('minute').value=st.minute;
@@ -212,7 +215,12 @@ function save(silent){
 function toggle(){st.enabled=!st.enabled;save(true);toast(st.enabled?'Automation ON':'Automation OFF')}
 function testSend(){
   if(!el('chat').value.trim()||!el('message').value.trim()){toast('Add a chat name and message first');return}
-  save(true);call('testSend');toast('Opening WhatsApp…');
+  save(true);call('testSend');toast('Opening WhatsApp...');
+}
+function showResult(msg){
+  if(!msg)return;
+  el('result').textContent='Last send: '+msg;
+  if(msg!==lastResultShown){lastResultShown=msg;toast(msg)}
 }
 function pill(id,ok){var b=el(id);b.classList.toggle('ok',!!ok);b.textContent=(ok?'✓ ':'! ')+b.dataset.label}
 function refreshPerms(){

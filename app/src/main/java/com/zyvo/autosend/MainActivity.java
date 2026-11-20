@@ -25,11 +25,20 @@ public class MainActivity extends Activity {
     private WebView web;
     private long lastScan;
     private boolean chatsReceiverRegistered;
+    private boolean resultReceiverRegistered;
 
     private final BroadcastReceiver chatsReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context c, Intent i) {
             injectChatsIfNew();
+        }
+    };
+
+    private final BroadcastReceiver resultReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context c, Intent i) {
+            String msg = i != null ? i.getStringExtra(WhatsappAccessibilityService.EXTRA_RESULT) : null;
+            if (msg != null) showResult(msg);
         }
     };
 
@@ -56,6 +65,16 @@ public class MainActivity extends Activity {
             chatsReceiverRegistered = true;
         } catch (Throwable ignored) {}
 
+        IntentFilter resultFilter = new IntentFilter(WhatsappAccessibilityService.ACTION_RESULT);
+        try {
+            if (Build.VERSION.SDK_INT >= 33) {
+                registerReceiver(resultReceiver, resultFilter, Context.RECEIVER_NOT_EXPORTED);
+            } else {
+                registerReceiver(resultReceiver, resultFilter);
+            }
+            resultReceiverRegistered = true;
+        } catch (Throwable ignored) {}
+
         if (Build.VERSION.SDK_INT >= 33 &&
                 ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                         != PackageManager.PERMISSION_GRANTED) {
@@ -79,6 +98,8 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         injectChatsIfNew();
+        String last = Settings.lastResult(this);
+        if (last != null && !last.isEmpty()) showResult(last);
         web.post(() -> web.evaluateJavascript(
                 "if (typeof refreshPerms === 'function') refreshPerms();", null));
     }
@@ -95,7 +116,20 @@ public class MainActivity extends Activity {
             try { unregisterReceiver(chatsReceiver); } catch (Throwable ignored) {}
             chatsReceiverRegistered = false;
         }
+        if (resultReceiverRegistered) {
+            try { unregisterReceiver(resultReceiver); } catch (Throwable ignored) {}
+            resultReceiverRegistered = false;
+        }
         super.onDestroy();
+    }
+
+    private void showResult(String msg) {
+        final String safe = msg.replace("\\", "\\\\")
+                .replace("'", "\\'")
+                .replace("\r", "")
+                .replace("\n", "\\n");
+        web.post(() -> web.evaluateJavascript(
+                "if (typeof showResult === 'function') showResult('" + safe + "');", null));
     }
 
     private void injectChatsIfNew() {
@@ -195,6 +229,11 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public String getChats() {
             return Settings.chatsJson(MainActivity.this);
+        }
+
+        @JavascriptInterface
+        public String getLastResult() {
+            return Settings.lastResult(MainActivity.this);
         }
 
         @JavascriptInterface
