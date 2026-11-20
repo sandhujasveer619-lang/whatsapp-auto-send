@@ -29,4 +29,7 @@ Key decisions:
   release the wake lock. Known limit: a secure PIN/pattern lock must be unlocked
   once; the system cannot dismiss a secure keyguard unattended.
 
-NOW: implementing screen-off sending — next step is commit + push + watch build.
+- [x] Build green (run 44671435403) + APK verified HTTP 200 (release apk-7).
+
+NOW: DONE — screen-off sending shipped. Test it: lock the phone with a Swipe/
+no lock screen, wait for the scheduled time, and check "Last send" in the app.

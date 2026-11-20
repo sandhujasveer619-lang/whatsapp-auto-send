@@ -47,7 +47,7 @@ No local gradle/java on Termux — all builds run on GitHub Actions.
   dismiss) then waits 2.2s before the normal chain. Terminal `report(msg,true)`
   re-locks via `GLOBAL_ACTION_LOCK_SCREEN` and releases the lock. Secure (PIN)
   keyguard cannot be dismissed unattended — send will report a failure.
-  versionCode 2 / versionName 1.1.
+  versionCode 2 / versionName 1.1. Shipped as apk-7 (build 44671435403 green).
 
 ## Current state
 
