@@ -2,6 +2,7 @@ package com.zyvo.autosend;
 
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.AccessibilityService.GestureResultCallback;
+import android.accessibilityservice.GestureDescription;
 import android.app.KeyguardManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
