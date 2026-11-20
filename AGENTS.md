@@ -48,11 +48,29 @@ No local gradle/java on Termux — all builds run on GitHub Actions.
   re-locks via `GLOBAL_ACTION_LOCK_SCREEN` and releases the lock. Secure (PIN)
   keyguard cannot be dismissed unattended — send will report a failure.
   versionCode 2 / versionName 1.1. Shipped as apk-7 (build 44671435403 green).
+- 2026-11-20: user asked to auto-dismiss a PASSWORD keyguard at trigger time
+  (two taps wake -> swipe -> password -> Enter -> send -> re-lock). Investigation:
+  no root (`su` denied), `/system/bin/input keyevent` -> SecurityException
+  INJECT_EVENTS, `run-as com.zyvo.autosend` -> Permission denied (Termux cannot
+  write app prefs), adb/wireless-debugging not enabled. `requestDismissKeyguard`
+  only works on non-secure (Swipe/none) locks.   Remaining lead: AccessibilityService
+  `dispatchGesture` (needs `canPerformGestures="true"`) + ACTION_SET_TEXT on the
+  password field; device-specific and unverified. Password must NEVER be committed
+  to this public repo — it has to be entered once in-app into private prefs.
+- 2026-11-20: user chose the best-effort in-app route. Implemented: `Settings`
+  prefs `auto_unlock` + `unlock_password` (private, entered via UI only);
+  `saveUnlock` JS bridge; UI card under screen-off toggle; `canPerformGestures=true`
+  plus SystemUI/keyguard packages in accessibility config; service `beginUnlock`
+  does swipe-up gesture -> ACTION_SET_TEXT (fallback: tap keyboard key nodes) ->
+  Enter -> poll `KeyguardManager.isKeyguardLocked()/isDeviceLocked()` -> runSend;
+  failure path is terminal so it re-locks. versionCode 3 / versionName 1.2.
+  NOT yet verified on device — needs a scheduled-send test with a password lock.
 
 ## Current state
 
-Release apk-6 (commit 5c089a2), build green, APK HTTP 200. User testing real
-send. If a send fails, the app shows the failing stage ("Chat not found",
-"Message box not found", "Send button not found", "Could not open WhatsApp
-chats list"). Search-result selection now walks up to 6 ancestors for a
-clickable row and falls back to the first word of the chat name.
+Latest shipped: apk-8 (commit ce7cda5), build green, APK HTTP 200 — screen-off
+sending works on Swipe/no-lock devices. Working tree now has the unverified
+auto-unlock feature (not yet committed/built). Send failures show the failing
+stage ("Chat not found", "Message box not found", "Send button not found",
+"Could not open WhatsApp chats list", "Could not unlock screen"). Search-result
+selection walks up to 6 ancestors and falls back to the first word.

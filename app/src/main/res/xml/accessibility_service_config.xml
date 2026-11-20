@@ -4,6 +4,7 @@
     android:accessibilityFeedbackType="feedbackGeneric"
     android:accessibilityFlags="flagIncludeNotImportantViews|flagRetrieveInteractiveWindows"
     android:canRetrieveWindowContent="true"
+    android:canPerformGestures="true"
     android:description="@string/accessibility_description"
     android:notificationTimeout="100"
-    android:packageNames="com.whatsapp,com.whatsapp.w4b"/>
+    android:packageNames="com.whatsapp,com.whatsapp.w4b,com.android.systemui,com.android.keyguard,com.android.settings"/>

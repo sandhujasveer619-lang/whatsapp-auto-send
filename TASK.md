@@ -31,5 +31,10 @@ Key decisions:
 
 - [x] Build green (run 44671435403) + APK verified HTTP 200 (release apk-7).
 
-NOW: DONE — screen-off sending shipped. Test it: lock the phone with a Swipe/
-no lock screen, wait for the scheduled time, and check "Last send" in the app.
+- [ ] Add best-effort auto-unlock for password locks (user chose in-app route):
+  password entered once in-app and stored in private prefs only (NEVER in repo);
+  canPerformGestures enabled; trigger wakes, swipes up, sets text (falls back to
+  tapping keyboard keys), taps Enter, polls KeyguardManager, then sends and
+  re-locks. versionCode 3 / versionName 1.2. Awaiting build + on-device test.
+
+NOW: implementing auto-unlock; next is commit + push + watch build + deliver APK.

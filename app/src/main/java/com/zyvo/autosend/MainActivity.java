@@ -157,6 +157,9 @@ public class MainActivity extends Activity {
                 o.put("chat", Settings.chat(MainActivity.this));
                 o.put("message", Settings.message(MainActivity.this));
                 o.put("screenOff", Settings.screenOff(MainActivity.this));
+                o.put("autoUnlock", Settings.autoUnlock(MainActivity.this));
+                String pw = Settings.unlockPassword(MainActivity.this);
+                o.put("hasPassword", pw != null && !pw.isEmpty());
                 return o.toString();
             } catch (Throwable t) {
                 return "{}";
@@ -173,6 +176,12 @@ public class MainActivity extends Activity {
             boolean off = screenOff == null || Boolean.parseBoolean(screenOff);
             Settings.save(MainActivity.this, Boolean.parseBoolean(enabled), h, m, chat, message, off);
             Scheduler.schedule(MainActivity.this);
+        }
+
+        @JavascriptInterface
+        public void saveUnlock(String on, String password, String clear) {
+            Settings.saveUnlock(MainActivity.this, Boolean.parseBoolean(on), password,
+                    Boolean.parseBoolean(clear));
         }
 
         @JavascriptInterface

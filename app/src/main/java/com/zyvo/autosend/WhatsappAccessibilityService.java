@@ -1,20 +1,27 @@
 package com.zyvo.autosend;
 
 import android.accessibilityservice.AccessibilityService;
+import android.accessibilityservice.AccessibilityService.GestureResultCallback;
+import android.app.KeyguardManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.graphics.Path;
+import android.graphics.Rect;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.os.SystemClock;
+import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.accessibility.AccessibilityWindowInfo;
 import android.widget.Toast;
 
 import org.json.JSONArray;
@@ -217,6 +224,180 @@ public class WhatsappAccessibilityService extends AccessibilityService {
         }
     }
 
+    /* ---- best-effort secure-lock unlock ------------------------------- */
+
+    private interface Done { void run(); }
+
+    private static final String[] ENTER_WORDS = {
+            "enter", "go", "done", "ok", "unlock", "return", "send"
+    };
+
+    private List<AccessibilityWindowInfo> windows() {
+        try {
+            List<AccessibilityWindowInfo> list = getWindows();
+            return list == null ? Collections.emptyList() : list;
+        } catch (Throwable t) {
+            return Collections.emptyList();
+        }
+    }
+
+    private void beginUnlock(final String chat, final String message) {
+        report("Unlocking screen...", false);
+        final String password = Settings.unlockPassword(this);
+        if (password == null || password.isEmpty()) {
+            report("No unlock password saved", true);
+            return;
+        }
+        swipeUp(() -> handler.postDelayed(() -> enterPassword(chat, message, password), 450));
+    }
+
+    // Swipe up from the lower centre to bring up the password bouncer.
+    private void swipeUp(final Done done) {
+        try {
+            DisplayMetrics dm = new DisplayMetrics();
+            WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
+            if (wm != null) wm.getDefaultDisplay().getRealMetrics(dm);
+            int w = dm.widthPixels > 0 ? dm.widthPixels : 1080;
+            int h = dm.heightPixels > 0 ? dm.heightPixels : 1920;
+            Path path = new Path();
+            path.moveTo(w * 0.5f, h * 0.86f);
+            path.lineTo(w * 0.5f, h * 0.28f);
+            GestureDescription gesture = new GestureDescription.Builder()
+                    .addStroke(new GestureDescription.StrokeDescription(path, 0, 320))
+                    .build();
+            boolean ok = dispatchGesture(gesture, new GestureResultCallback() {
+                @Override public void onCompleted(GestureDescription g) { handler.post(done::run); }
+                @Override public void onCancelled(GestureDescription g) { handler.post(done::run); }
+            }, null);
+            if (!ok) handler.post(done::run);
+        } catch (Throwable t) {
+            handler.post(done::run);
+        }
+    }
+
+    private void enterPassword(final String chat, final String message, final String password) {
+        if (setPasswordText(password)) {
+            handler.postDelayed(() -> submitAndWait(chat, message), 350);
+        } else {
+            // Some keyguards block ACTION_SET_TEXT — fall back to tapping the
+            // on-screen keyboard keys with accessibility gestures.
+            typeKeys(password, 0, () ->
+                    handler.postDelayed(() -> submitAndWait(chat, message), 200));
+        }
+    }
+
+    private boolean setPasswordText(String text) {
+        for (AccessibilityWindowInfo window : windows()) {
+            AccessibilityNodeInfo field = findEditable(window.getRoot());
+            if (field == null) continue;
+            try { field.performAction(AccessibilityNodeInfo.ACTION_FOCUS); } catch (Throwable ignored) {}
+            Bundle args = new Bundle();
+            args.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text);
+            try {
+                if (field.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) return true;
+            } catch (Throwable ignored) {}
+        }
+        return false;
+    }
+
+    private void typeKeys(final String text, final int index, final Done done) {
+        if (index >= text.length()) { done.run(); return; }
+        AccessibilityNodeInfo key = findKeyNode(String.valueOf(text.charAt(index)));
+        if (key == null) { done.run(); return; }
+        tapNode(key, () -> handler.postDelayed(() -> typeKeys(text, index + 1, done), 90));
+    }
+
+    private AccessibilityNodeInfo findKeyNode(String key) {
+        for (AccessibilityWindowInfo window : windows()) {
+            AccessibilityNodeInfo found = findKeyNode(window.getRoot(), key);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    private AccessibilityNodeInfo findKeyNode(AccessibilityNodeInfo node, String key) {
+        if (node == null) return null;
+        if (key.equalsIgnoreCase(textOf(node)) && tappable(node)) return node;
+        for (int i = 0; i < node.getChildCount(); i++) {
+            AccessibilityNodeInfo found = findKeyNode(node.getChild(i), key);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    private boolean tappable(AccessibilityNodeInfo node) {
+        if (node.isClickable()) return true;
+        AccessibilityNodeInfo parent = node.getParent();
+        return parent != null && parent.isClickable();
+    }
+
+    private void tapNode(AccessibilityNodeInfo node, final Done done) {
+        try {
+            Rect bounds = new Rect();
+            node.getBoundsInScreen(bounds);
+            if (bounds.width() <= 0 || bounds.height() <= 0) {
+                handler.post(done::run);
+                return;
+            }
+            Path path = new Path();
+            path.moveTo(bounds.centerX(), bounds.centerY());
+            GestureDescription gesture = new GestureDescription.Builder()
+                    .addStroke(new GestureDescription.StrokeDescription(path, 0, 60))
+                    .build();
+            boolean ok = dispatchGesture(gesture, new GestureResultCallback() {
+                @Override public void onCompleted(GestureDescription g) { handler.post(done::run); }
+                @Override public void onCancelled(GestureDescription g) { handler.post(done::run); }
+            }, null);
+            if (!ok) handler.post(done::run);
+        } catch (Throwable t) {
+            handler.post(done::run);
+        }
+    }
+
+    private void submitAndWait(final String chat, final String message) {
+        AccessibilityNodeInfo enter = null;
+        for (AccessibilityWindowInfo window : windows()) {
+            enter = findEnter(window.getRoot());
+            if (enter != null) break;
+        }
+        if (enter != null) tapNode(enter, () -> pollUnlocked(chat, message, 0));
+        else pollUnlocked(chat, message, 0);
+    }
+
+    private AccessibilityNodeInfo findEnter(AccessibilityNodeInfo node) {
+        if (node == null) return null;
+        String value = textOf(node).toLowerCase(Locale.ROOT);
+        CharSequence desc = node.getContentDescription();
+        String description = desc == null ? "" : desc.toString().toLowerCase(Locale.ROOT);
+        if (tappable(node) && (isEnterWord(value) || isEnterWord(description))) return node;
+        for (int i = 0; i < node.getChildCount(); i++) {
+            AccessibilityNodeInfo found = findEnter(node.getChild(i));
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    private static boolean isEnterWord(String value) {
+        if (value == null) return false;
+        for (String word : ENTER_WORDS) if (word.equals(value.trim())) return true;
+        return false;
+    }
+
+    private void pollUnlocked(final String chat, final String message, final int attempt) {
+        KeyguardManager km = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
+        boolean locked = km != null && (km.isKeyguardLocked() || km.isDeviceLocked());
+        if (!locked) {
+            report("Screen unlocked", false);
+            handler.post(() -> runSend(chat, message));
+            return;
+        }
+        if (attempt >= 12) {
+            report("Could not unlock screen - check saved password", true);
+            return;
+        }
+        handler.postDelayed(() -> pollUnlocked(chat, message, attempt + 1), 400);
+    }
+
     private void relockScreen() {
         if (Build.VERSION.SDK_INT >= 28) {
             try {
@@ -272,7 +453,12 @@ public class WhatsappAccessibilityService extends AccessibilityService {
             } catch (Throwable t) {
                 Log.w("AutoSend", "screen bridge failed", t);
             }
-            handler.postDelayed(() -> runSend(chat, message), 2200);
+            final String password = Settings.unlockPassword(this);
+            if (Settings.autoUnlock(this) && password != null && !password.isEmpty()) {
+                handler.postDelayed(() -> beginUnlock(chat, message), 900);
+            } else {
+                handler.postDelayed(() -> runSend(chat, message), 2200);
+            }
         } else {
             runSend(chat, message);
         }

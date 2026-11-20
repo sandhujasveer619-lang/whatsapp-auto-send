@@ -32,6 +32,27 @@ public final class Settings {
         return prefs(c).getBoolean("screen_off", true);
     }
 
+    // Best-effort secure-lock auto-unlock. The password lives only in this
+    // app's private prefs — never in source, logs, or the public repo.
+    public static boolean autoUnlock(Context c) {
+        return prefs(c).getBoolean("auto_unlock", false);
+    }
+
+    public static String unlockPassword(Context c) {
+        return prefs(c).getString("unlock_password", "");
+    }
+
+    public static void saveUnlock(Context c, boolean on, String password, boolean clear) {
+        String existing = unlockPassword(c);
+        String value = existing;
+        if (clear) value = "";
+        else if (password != null && !password.isEmpty()) value = password;
+        prefs(c).edit()
+                .putBoolean("auto_unlock", on)
+                .putString("unlock_password", value)
+                .apply();
+    }
+
     public static void save(Context c, boolean enabled, int hour, int minute,
                             String chat, String message) {
         save(c, enabled, hour, minute, chat, message, screenOff(c));

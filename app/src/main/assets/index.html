@@ -127,6 +127,21 @@ summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--accent);paddin
 </div>
 
 <div class="card">
+  <div class="optTop">
+    <div class="grow">
+      <div class="optTitle">Auto-unlock lock screen</div>
+      <div class="optSub">Best effort on secure locks: wake, swipe, type your password, send, then re-lock. Needs on-device testing.</div>
+    </div>
+    <button id="swUnlock" class="sw" onclick="toggleUnlock()" aria-label="Toggle auto-unlock"></button>
+  </div>
+  <div class="pickRow" style="margin-top:11px">
+    <input id="unlockPass" type="password" placeholder="Lock-screen password" autocomplete="off" spellcheck="false">
+    <button class="pickbtn" onclick="clearUnlock()">Clear</button>
+  </div>
+  <div class="hint" id="pwHint">Stored only on this device, in the app's private data. Never uploaded.</div>
+</div>
+
+<div class="card">
   <div class="seclabel">Recipient</div>
   <div class="pickRow">
     <input id="chat" type="text" placeholder="Group / chat name" autocomplete="off" spellcheck="false">
@@ -158,9 +173,11 @@ summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--accent);paddin
       5. Add the message, then tap <b>Save schedule</b>.<br>
       6. Tap <b>Send a test message</b> to verify.<br>
       7. Keep <b>Send while screen is off</b> on to send even when the display is
-      asleep — the screen wakes for a moment and locks again after sending.
-      A PIN/pattern lock cannot be dismissed automatically: use Swipe or no
-      lock screen for unattended sends.
+      asleep — the screen wakes and locks again after sending.<br>
+      8. For a password lock: type it once under <b>Auto-unlock lock screen</b>
+      and switch that on. The app will try to wake, swipe, enter it and send.
+      This is best effort — Android may block it; test with a scheduled send.
+      If it fails, use a Swipe/no lock screen for fully unattended sends.
     </div>
   </details>
 </div>
@@ -182,7 +199,7 @@ summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--accent);paddin
 <div class="toast" id="toast"></div>
 
 <script>
-var st={enabled:false,hour:8,minute:30,ampm:'AM',chat:'',message:'',screenOff:true};
+var st={enabled:false,hour:8,minute:30,ampm:'AM',chat:'',message:'',screenOff:true,autoUnlock:false,hasPassword:false};
 var chatNames=[],lastResultShown=null;
 function el(id){return document.getElementById(id)}
 function call(n){try{var a=window.Android&&window.Android[n];return a?a.apply(window.Android,Array.prototype.slice.call(arguments,1)):null}catch(e){return null}}
@@ -205,6 +222,10 @@ function nextText(){
 function render(){
   el('sw').classList.toggle('on',st.enabled);
   el('swOff').classList.toggle('on',st.screenOff);
+  el('swUnlock').classList.toggle('on',st.autoUnlock);
+  el('pwHint').textContent=st.hasPassword
+    ?'Password saved on this device. Leave blank to keep it, or type a new one.'
+    :'Stored only on this device, in the app\'s private data. Never uploaded.';
   var h=parseInt(el('hour').value,10)||12,m=parseInt(el('minute').value,10)||0;
   el('bigtime').innerHTML=pad(h)+':'+pad(m)+' <small>'+st.ampm+'</small>';
   var sc=el('stateChip');sc.textContent=st.enabled?'● On':'● Off';sc.classList.toggle('on',st.enabled);
@@ -217,6 +238,7 @@ function load(){
   st.enabled=!!o.enabled;st.hour=o.hour||8;st.minute=o.minute||30;
   st.chat=o.chat||'';st.message=o.message||'';
   st.screenOff=o.screenOff!==false;
+  st.autoUnlock=!!o.autoUnlock;st.hasPassword=!!o.hasPassword;
   var cj=call('getChats');
   if(cj){try{chatNames=JSON.parse(cj)||[]}catch(e){}}
   showResult(call('getLastResult'));
@@ -230,11 +252,23 @@ function save(silent){
   st.chat=el('chat').value.trim();st.message=el('message').value;
   call('save',String(st.enabled),String(to24()),String(parseInt(el('minute').value,10)||0),
        st.chat,st.message,String(st.screenOff));
+  call('saveUnlock',String(st.autoUnlock),el('unlockPass').value,'false');
+  st.hasPassword=st.hasPassword||!!el('unlockPass').value;
+  el('unlockPass').value='';
   render();if(!silent)toast('Schedule saved');
 }
 function toggle(){st.enabled=!st.enabled;save(true);toast(st.enabled?'Automation ON':'Automation OFF')}
 function toggleScreenOff(){st.screenOff=!st.screenOff;save(true);
   toast(st.screenOff?'Screen-off sending ON':'Screen-off sending OFF')}
+function toggleUnlock(){
+  if(!st.autoUnlock&&!st.hasPassword&&!el('unlockPass').value.trim()){
+    toast('Enter your lock-screen password first');return;
+  }
+  st.autoUnlock=!st.autoUnlock;save(true);
+  toast(st.autoUnlock?'Auto-unlock ON':'Auto-unlock OFF')}
+function clearUnlock(){
+  st.autoUnlock=false;st.hasPassword=false;el('unlockPass').value='';
+  call('saveUnlock','false','','true');render();toast('Saved password cleared')}
 function testSend(){
   if(!el('chat').value.trim()||!el('message').value.trim()){toast('Add a chat name and message first');return}
   save(true);call('testSend');toast('Opening WhatsApp...');
